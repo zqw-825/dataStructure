@@ -1,5 +1,7 @@
+import com.sort.QuickSortJava;
 import com.util.Util;
 import com.sort.MergeSortJava;
+import org.junit.After;
 import org.junit.Test;
 
 /**
@@ -9,16 +11,17 @@ import org.junit.Test;
 public class TestSort {
 
 
+    @Test
+    public void QuickSortTest() {
+        int[] arr = Util.getArr(20);
+        int[] tempArr = new int[20];
+        QuickSortJava.quickSort(arr,0,arr.length-1);
 
+        for (int i : arr) {
+            System.out.print(i + " ");
+        }
 
-
-
-
-
-
-
-
-
+    }
 
 
     @Test  //归并排序测试
@@ -31,4 +34,5 @@ public class TestSort {
             System.out.print(i + " ");
         }
     }
+
 }
