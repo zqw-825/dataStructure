@@ -13,7 +13,7 @@ import java.util.ArrayList;
 public class TestSort {
     @Test //二分查找测试
     public void BinSearchTest(){
-        int[] arr = Util.getArr();
+        int[] arr = Util.getArr(20);
         QuickSortJava.quickSort(arr,0,arr.length-1);
         Util.arrToString(arr);
         ArrayList flag = BinarySearch.binarySearch(arr, 0, arr.length-1, 3);

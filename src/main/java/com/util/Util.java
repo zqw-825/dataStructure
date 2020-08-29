@@ -12,10 +12,11 @@ public class Util {
         int[] arr = new int[size];
 
         for (int i = 0; i < size; i++) {
-            arr[i] = (int) (Math.random() * size);
+            arr[i] = (int) (Math.random() * (size - 10));
         }
         return arr;
     }
+
     public static int[] getArr() {
         int[] arr = new int[20];
 
