@@ -23,9 +23,9 @@ object QuickSortScala {
         if (l >= r) {
           break()
         }
-        arr(l) = arr(l)^arr(r)
-        arr(r) = arr(l)^arr(r)
-        arr(l) = arr(l)^arr(r)
+        arr(l) = arr(l) ^ arr(r)
+        arr(r) = arr(l) ^ arr(r)
+        arr(l) = arr(l) ^ arr(r)
         if (arr(l) == pivot) {
           r -= 1
         }

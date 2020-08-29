@@ -1,4 +1,4 @@
-import com.sort.QuickSortScala
+import com.sort.{MergeSortScala, QuickSortScala}
 
 /**
  * @author zqw
@@ -7,9 +7,11 @@ import com.sort.QuickSortScala
 object SortTest {
   def main(args: Array[String]): Unit = {
 
-    val array = Array(1,1,1,1,1,1,1,1,1,1,1,3,2,1,2)
-    QuickSortScala.quickSort(array,0,array.length-1)
-    for (elem <- array) {
+    val array =new Array[Int](30)
+    val arr = Array(1,1,1,1,1,1,1,1,1,1,1,3,2,1,2)
+//    QuickSortScala.quickSort(arr,0,array.length-1)
+    MergeSortScala.mergeSort(arr,0,arr.length-1,array)
+    for (elem <- arr) {
       print(elem +" ")
     }
 
