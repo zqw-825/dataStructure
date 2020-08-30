@@ -1,7 +1,6 @@
 package com.zqw.sort
 
 import scala.util.control.Breaks._
-
 /**
  * @author zqw
  * @create 2020-08-29 7:34 
@@ -41,11 +40,8 @@ object QuickSortScala {
     if (l < right) {
       quickSort(arr, l, right)
     }
-
     if (r > left) {
       quickSort(arr, left, r)
     }
-
   }
-
 }

@@ -6,9 +6,7 @@ KV KV下标 KV分区
 所以不是100M数据才发生溢写  还记录了下标分区等
 Map写KV和溢写是不同线程做
 
-
 配置最终放properties里
-
 
 MapReduce的核心思想:先分(map)后合(reduce)
 Map阶段(MapTask):  负责将数据分到多台机器中，进行并行计算
@@ -28,12 +26,9 @@ reduce()为每个key调用1次reduce方法，大部分的MapReduce程序都需�
 cleanup(): 在MapTask结束前调用1次
 run()方法: 控制Mapper中的 setup  map  cleanup执行的方法
 
-
 Inputformat --> map --> sort --> copy --> sort --> reduce --> outputformat
 
-
 CombineTextInputFormat
-
 
 块: HDFS存数据的单位. 是把要存储到HDFS的文件以设置好的块的大小，从物理上将文件切成N个块.
 切片: MapReduce计算数据的单位. 是把要在MR中计算的数据从'逻辑'上按照切片的大小，划分成N个切片.
@@ -48,7 +43,6 @@ CombineTextInputFormat
 跨节点(网络传输)
 对象数据要持久化
 
-
 数据的分区由分区器(Partitioner)来决定.
  Hadoop有默认的分区器对象 HashPartitioner .
     HashPartitioner会按照k的hash值对Reduce的个数进行取余操作得到k所对应的分区.
@@ -57,6 +51,5 @@ hadoop也支持用户自定义分区器
 排序
 
 Combiner:
-
 
 job

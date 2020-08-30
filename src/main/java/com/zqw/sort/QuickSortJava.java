@@ -11,36 +11,21 @@ public class QuickSortJava {
         int mid = (right + left) / 2;
         int pivot = arr[mid];
         while (l < r) {
-            while (arr[l] < pivot) {
-                l++;
-            }
-            while (arr[r] > pivot) {
-                r--;
-            }
-            if (l >= r) {
-                break;
-            }
+            while (arr[l] < pivot) l++;
+            while (arr[r] > pivot) r--;
+            if (l >= r) break;
             arr[l] = arr[l] ^ arr[r];
             arr[r] = arr[l] ^ arr[r];
             arr[l] = arr[l] ^ arr[r];
-            if (arr[l] == pivot) {
-                r--;
-            }
-            if (arr[r] == pivot) {
-                l++;
-            }
+            if (arr[l] == pivot) r--;
+            if (arr[r] == pivot) l++;
         }
         if (l == r) {
             l++;
             r--;
         }
-        if (l < right) {
-            quickSort(arr, l, right);
-        }
-        if (r > left) {
-            quickSort(arr, left, r);
-        }
-
+        if (l < right) quickSort(arr, l, right);
+        if (r > left) quickSort(arr, left, r);
     }
 
 }

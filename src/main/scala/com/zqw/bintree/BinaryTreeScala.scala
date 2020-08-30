@@ -16,7 +16,6 @@ class HeroNode(hNo:Int,hName:String){
   var left:HeroNode = null
   var right:HeroNode = null
 
-
 }
 class BinaryTree{
   var root:HeroNode = null

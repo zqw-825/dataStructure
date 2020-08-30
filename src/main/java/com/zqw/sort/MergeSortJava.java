@@ -5,7 +5,6 @@ package com.zqw.sort;
  * @create 2020-08-28 21:58
  */
 public class MergeSortJava {
-
     public static void mergeSort(int[] arr, int left, int right, int[] tempArr) {
         if (left < right) {
             int mid = (left + right) / 2;
@@ -13,9 +12,7 @@ public class MergeSortJava {
             mergeSort(arr, mid + 1, right, tempArr);
             merge(arr, left, mid, right, tempArr);
         }
-
     }
-
     public static void merge(int[] arr, int left, int mid, int right, int[] tempArr) {
         int i = left;
         int j = mid + 1;

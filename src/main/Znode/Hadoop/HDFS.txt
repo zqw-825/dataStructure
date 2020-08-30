@@ -1,5 +1,4 @@
 HDFS
-
 块block大小  设置取决于磁盘传输速率
 寻址时间为传输时间的1%为最佳
 一般磁盘传输速率为100M/s
@@ -11,24 +10,11 @@ HDFS
 网络拓扑  节点距离计算
 机架感知  副本存储节点选择：同步副本时会选择不同机架
 
-
 NameNode管理的元数据存在哪里?  内存+磁盘
-
-
-NameNode(nn)
-负责元数据信息
-负责处理客户端的读写请求
-下达指令给DN
-
-DataNode(dn)
-负责管理HDFS的所有的真实文件数据
-以块的形式存储真实数据
-负责客户端数据的读写操作
 
 SecondaryNameNode(2nn):(HA后不用2nn了)
 分担NameNode一些工作，减轻NameNode的压力 关键时刻，辅助恢复NameNode
     注意: 2nn 不是 nn的热备.顶多算nn的秘书 2nn不能成为NN
-
 
 如何在实现高效操作元数据的情况下，还能实现内存+磁盘的维护方案.并且还可以快速恢复NN
 ​  HDFS 通过 fsimage(镜像文件) + edits(编辑日志)的方案来解决问题.
@@ -39,7 +25,6 @@ SecondaryNameNode(2nn):(HA后不用2nn了)
     进行 fsimage + edits文件的合并工作, 从而生成新的fsimage
 ​       		新的fsimage = 旧的fsimage + edits      
                 将fsimage 和edits的合并工作交给2nn完成
-
     每隔1小时或者记录了100万次的操作后
 
 2NN 将NN中的fsimage和 edits 拷贝过来。
