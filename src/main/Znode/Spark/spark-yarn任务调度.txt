@@ -1,0 +1,79 @@
+Spark-Yarn-cluster模式
+任务调度：资源申请和任务分发
+App -> Job -> Stage -> Task
+
+任务提交
+程序员提交一个Spark应用程序(Application)
+首先Client向RM申请启动一个Application
+RM检查是否有资源满足Application的需求,如果有
+Client准备AppMaster的启动上下文,交给RM,并循环监控Application状态
+当有资源时,RM会在某个NM上启动AppMaster进程
+此AppMaster会单独启动Driver后台线程,Driver启动后,AM会通过RPC连接Driver,并向RM申请Container来启动Executor进程
+RM返回Container资源后,AppMaster在对应的Container上启动对应的ExecutorBackEnd
+在ExecutorBackEnd上启动Executor
+Executor启动后,会向Driver反向注册
+注册成功后,Driver和Executor之间保持心跳, Executor等待Driver分发任务
+Executor全部注册完后
+         Driver开始执行main方法
+         执行到Action算子后进行反推算,触发Job
+             根据宽依赖(Shuffle)进行分Stage
+             每个Stage被打包为TaskSet
+             TaskSet根据各阶段最后的分区决定启动多少个Task
+             将Task分配到Executor去执行
+Executor完成任务后,会将任务状态上报给Driver
+
+
+
+DAGScheduler负责Stage级的调度
+    将Job切分成若干个Stage,并将Stage打包成TaskSet交给TaskScheduler
+    DAGScheduler提交Stage并监控相关状态
+TaskScheduler负责Task级的调度
+    TaskScheduler会监控Stage的运行状态
+    将TaskSet按照指定的调度策略分发到Executor上执行
+
+SchedulerBackend通过ApplicationMaster申请资源，并不断从TaskScheduler中拿到合适的Task分发到Executor执行。
+调度过程中SchedulerBackend负责提供可用资源，其中SchedulerBackend有多种实现，分别对接不同的资源管理系统
+
+HeartbeatReceiver负责接收Executor的心跳信息，监控Executor的存活状况，并通知到TaskScheduler。
+
+
+Driver开始执行main方法
+    Driver初始化SparkContext时会分别初始化DAGScheduler、TaskScheduler、SchedulerBackend和HeartbeatReceiver
+    并启动SchedulerBackend和HeartbeatReceiver
+
+Stage级调度：
+    执行到Action算子后进行反推算,触发Job(Job由最终的RDD和Action方法封装而成)
+    SparkContext将Job交给DAGScheduler,
+        DAGScheduler根据DAG血缘依赖关系(宽依赖shuffle)进行切分,将Job切分成若干个Stage
+            以宽依赖Shuffle为界划分Stage,窄依赖的RDD被分配到同一个Stage
+        Stage分两类:ResultStage:DAG最下游,Action行动算子结束的阶段
+                    ShuffleMapStage,宽依赖结束的阶段
+        Stage提交时会将Task信息序列化并打包成TaskSet交给TaskScheduler
+Task级调度：
+      TaskScheduler将TaskSet封装为TaskSetManager加入调度队列中
+         TaskSetManager负责监控管理同一个Stage中的Tasks，TaskScheduler就是以TaskSetManager为单元来调度任务。
+
+        一个分区对应一个Task
+
+         TaskSet根据各阶段最后的分区决定启动多少个Task
+
+         将Task分配到Executor去执行
+
+
+TaskScheduler初始化后会启动SchedulerBackend，它负责跟外界打交道，接收Executor的注册信息，
+并维护Executor的状态，所以说SchedulerBackend会定期地去“询问”TaskScheduler有没有任务要运行，
+TaskScheduler在SchedulerBackend“问”它的时候，会从调度队列中按照指定的调度策略(FIFO,公平)选择
+TaskSetManager去调度运行
+
+将TaskSetManager加入rootPool调度池中之后，调用SchedulerBackend的riviveOffers方法给
+driverEndpoint发送ReviveOffer消息；driverEndpoint收到ReviveOffer消息后调用makeOffers
+方法，过滤出活跃状态的Executor（这些Executor都是任务启动时反向注册到Driver的Executor）
+然后将Executor封装成WorkerOffer对象；准备好计算资源（WorkerOffer）后，taskScheduler
+基于这些资源调用resourceOffer在Executor上分配task。
+
+
+ShuffleMapStage的结束伴随着shuffle文件的写磁盘。
+ResultStage基本上对应代码中的action算子，即将一个函数应用在RDD的各个partition的数据集上，意味着一个job的运行结束。
+
+
+

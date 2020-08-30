@@ -1,0 +1,45 @@
+SparkShuffle
+
+    map:shuffleWrite
+    reduce:shuffleRead
+
+map过程和reduce过程都会由若干个task来执行
+
+    shuffle前后：
+        MapTask数：(第一个是切片数(分区数)决定,其他由分区数决定)
+                  RDD分区数最开始由最开始的文件切片数决定
+                  当执行减少分区的操作时,会减少分区数，如distinct,coalesce等
+                  最后Maptask的个数由宽依赖之前的RDD的分区数决定
+        ReduceTask数：(分区数决定)
+                    reduce端的stage默认取spark.default.parallelism这个配置项的值作为分区数，
+                    如果没有配置，则以map端的最后一个RDD的分区数作为其分区数
+
+    Map将(数据,文件位置)封装成MapStatus对象,由本进程的MapOutputTrackerWorker对象将MapStatus对象
+                    交给Driver的MapOutputTrackerMaster对象
+
+    当所有的Map task执行完毕后，Driver进程中的MapOutPutTrackerMaster就掌握了所有的磁盘小文件的位置信息
+
+    Reduce数据拉取：在reduceTask启动前，会让本进程的MapOutputTracjerWorker对象
+                    向Driver进程中的MapOutputTrackerMaster对象请求文件位置
+
+
+
+
+  HashShuffle：缺点生成的磁盘小文件太多
+    将K通过Hash算法进行划分，将相同的K写入同一个磁盘文件中
+    有多少个K就生成多少个磁盘文件,同时一个文件对应一个ReduceTask
+    生成的  磁盘文件数 = K数 × Executor数
+
+    此时该stage的每一个task就需要将上一个stage的计算结果中的所有相同key，
+    从各个节点上通过网络都拉取到自己所在的节点上，然后进行key的聚合或连接等操作
+
+    shuffle read的拉取过程是一边拉取一边进行聚合的
+
+
+   优化后的HashShuffle(park.shuffle. consolidateFiles 配置为true) consolidate机制
+        开启consolidate机制之后，会出现shuffleFileGroup，来存放对应的磁盘文件，
+        每一批MapTask会复用shuffleFileGroup，不必生成新的磁盘文件，
+        减少磁盘文件数量，从而提升shuffle write的性能
+
+        磁盘文件的数量与下游stage的task数量是相同的
+        一个Executor上有多少个CPU core，就可以并行执行多少个task

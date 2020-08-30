@@ -1,0 +1,16 @@
+RDD、DataFrame、DataSet三者转换
+ RDD
+ .toDF ->DataFrame
+ .toDS ->DataSet
+
+ DataFrame
+ .rdd ->RDD
+ .as[类型]->DataSet  (DS比DF多了一个类型)
+
+ DataSet
+ .rdd ->rdd
+ .toDF ->DataFrame
+
+ 都是分布式弹性数据集
+
+ import spark.implicits._

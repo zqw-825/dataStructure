@@ -9,7 +9,7 @@ import java.util.ArrayList;
 public class BinarySearch {
     public static ArrayList<Integer> binarySearch(int[] arr, int left, int right, int findVal) {
         ArrayList<Integer> list = new ArrayList<>();
-        if (findVal < arr[left] && findVal > arr[right] && left > right) {
+        if (findVal < arr[left] || findVal > arr[right] || left > right) {
             return list;
         }
         int flag = left + (right - left)/ 2;

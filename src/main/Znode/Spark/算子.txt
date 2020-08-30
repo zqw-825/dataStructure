@@ -1,0 +1,103 @@
+ <--转换算子/-->
+
+     //单V类型
+     map：映射 改变形态  以元素为单位
+
+     mapPartitions：映射  以分区为单位
+
+     mapPartitionsWithIndex：映射 可指定分区号 （可模式匹配）与 case 联用   需使用{}
+
+     flatMap：扁平映射 将集合中的元素打散
+
+     glom：()将分区的元素合并为数组 与flatMap相反
+             合并为‘数组’，打印地址值
+
+     coalesce:重新分区 一般用于减小分区数 ，(n,boolean) n为设置分区数 boolean 默认false不执行shuffle，true为执行shuffle
+                 默认不能扩大分区数 因为默认不执行shuffle，选择true后(会执行shuffle)可以扩大分区数
+
+     repartition：(n) 一般用于扩展分区，底层执行coalesce(n,true) 默认执行shuffle
+                 不执行shuffle效率高 ，执行shuffle会落盘 效率低，但是能防止数据倾斜
+
+     distinct：(n) 去重(可定义分区) 底层为map加reduceByKey加map
+
+     filter：(boolean) 过滤
+
+     groupBy：按条件分组 (可模式匹配)会按组 自动分区，可减少分区数(case, n)
+
+     sample：随机抽取  (false,n) 不放回 n为概率 取0-1 ; (true,n)放回 n为元素 期望出现的次数
+
+     sortBy：按条件排序 true正序  false倒序  数值类型可用 +- 进行正倒序
+
+ **************************
+ //双RDD类型  RDD1.union(RDD2)
+
+     union：合并
+
+     intersection：交集
+
+     subtract：差集
+
+     zip：拉链 两两合并  （元素数必须相等 而且 分区数必须相等）
+
+ ***************************
+ //KV类型
+
+     groupByKey：按照K进行分组,未进行操作只封装成一个集合  执行shuffle
+
+     reduceByKey：按照K将V进行聚合  不引入外部条件 执行conbiner后再执行shuffle
+             与groupByKey相比 优先选择reduceByKey 效率高； 但是会执行conbiner  求平均值等不行
+
+     aggregateByKey：(n)初始值（原初始值为0，有初始值时 额外加初始值进行计算）
+                     按照K将V进行聚合，在 分区内 和 分区间 采用不同的条件进行聚合
+
+     foldByKey：(n)初始值
+                 按照K将V进行聚合，在分区内和分区间采用相同的条件进行聚合
+
+     combineByKey：()
+
+     mapValues：对V进行操作，对K无影响
+
+     sortBy：根据K 对V进行排序，若排序对象 则需要序列化Serializable，和实现Ordered[*]特性
+                 或者隐式转换 implicit 类 继承/实现 Ordering特性
+
+     join：内连接
+     leftOuterJoin：左外连接  可能有空值
+     rightOuterJoin：右外连接  可能有空值
+     fullOuterJoin：满外连接 可能有空值 返回Option[*]-->some(*)/None
+
+     cogroup：每个RDD中相同key中的元素分别聚合成一个集合。
+
+
+
+
+ <--行动算子/-->  action
+
+     collect() 收集
+
+     foreach(println) 遍历
+
+     reduce(_+_) 聚合
+
+     first()：获取第一个元素
+
+     take(n):或取前n个元素 的数组
+
+     takeOrdered(n)：获取排序后的前n个元素 的数组
+
+     aggregate(n)(_+_,_+_)：对RDD中的元素进行聚合计算
+            先给每个分区赋予初始值(n)，再加上原有值，在分区内进行计算；
+            之后在分区间计算时再加一次初始值(n)，再进行分区间计算
+
+     fold(n)(_+_) ：区内与区间计算逻辑相同时  aggregate与fold结果一致
+
+     count()：获取元素个数 n
+
+     countByKey()：获取每个K的个数 返回map
+
+     countByValue()：获取每个元素的个数 返回map
+
+
+     save相关 对文件RDD进行处理
+     saveAsTextFile
+     saveAsObjectFile
+     saveAsSequenceFile

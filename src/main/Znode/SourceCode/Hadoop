@@ -1,0 +1,107 @@
+
+配置最终放properties里
+
+
+
+
+
+提交Job   job.waitForCompletion(true)
+state == jobState.DEFINE 判断job状态
+        submit()
+            ensureState(jobState.DEFINE) 再次确认状态
+            setUseNewAPI() 使用新API
+            connect():去明确环境是 本地还是集群
+                return new Cluster(getConfiguration)创建Cluster对象
+                    initialize(jobTrackAddr,conf)
+                        --> 获取Job运行的环境列表 集群与本地
+                            判断是啥 来生成YarnRunner或LocalJobRunner
+        JobSubmitter submitter = getJobSumitter(cluster.getFileSystem(),cluster.getClient()) 构造Job提交器对象（获取文件系统，客户端工具）
+        return submitter.subitJobInternal(job.this,cluster) 通过JobSubmitter提交Job
+                check.Specs(job) 校验输出路径
+                Path jobStaginArea = JobSubmissionFiles.getStagingDir(cluster,conf) 获取Job临时工作目录
+                JobID jobID = submitClient.getNewJobID 获取jobID  每个Job都会有jobID
+                Path submitJobDir = new Path(jobStagingArea,jobId.toString())  生成job提交路径 拼接的
+                copyAndConfigureFiles(job,submitJobDir)  拷贝Job相关配置信息 将job提交路径在磁盘创建出来 空的
+                int maps = writeSplits(job,submitJobDir) 生成切片信息
+                        -->writeNewSplits(job,summitJobDir)
+                                job.getinputFormat  获取InputFormat Driver里的 或者默认Textinputformat
+                                List splits = input.getSplits(Job)      getSplits获取切片(逻辑上) 获取一个或N个文件 从文件的一个位置读到一个位置
+                                将list转化为数组arr
+                                return array.length  返回切片个数  赋值给maps
+                        最终在提交目录 写出2个文件 job.split 和 job.splitmetainfo
+                conf.setInt(MRJobConfig.NUM_MAPS,maps)   设置mapTask个数 maps个也就是切片数
+                writeConf(conf,submitJobFile) 将所有的配置信息写到Job的提交路径下job.xml 用IO流
+----------------status = submitClient.submitJob(jobId,submitJobDir.toString(),job.getCredentials()) 真正的 job提交执行
+--------->MapTask流程。。shuffle。。reduceTask流程
+                jtFs.delete(submitJobDir,true) 删除submitJobDir下的文件 .split  .splitmetainfo .xml ....
+
+
+MapTask流程
+    status = submitClient.submitJob(jobId,submitJobDir.toString(),job.getCredentials()) 真正的 job提交执行
+    Job job = new job(JobID.downgrade(jobid),jobSubmitDir) 构造一个真的可执行的job(一个线程) |  driver的job是一个宏观job
+                                                           job(一个线程) 是 yarnRunner 的一个内部类
+    job线程run方法：
+        读取切片的job.splitmetainfo信息
+        再根据splitmetainfo信息进行切片 获得对应个数的Runnable对象(线程)
+        创建线程池 createMapExecutor()
+        runTasks(mappRunnables,mapService,"map")  将所有Runnable对象交给线程池
+            for(Runnable){service.submit(Runnable)} 遍历提交 交给一个线程去执行
+
+
+shuffle源码
+1  context.write(K,V)写出去
+进入shuffle传传递
+2  collector.collect(K,V,partitioner.getPartition(key,value,partitions))
+        收集KV以及分区号
+3  startSpill()
+            spillReady.signal() 线程通信 收集线程通知溢写线程干活
+                 执行线程 run方法  调用->   sortAndSpill()
+4  sortAndSpill()
+        SpillRecord spillRec = new SpillRecord(partitions) 创建按分区记录的对象
+        Path filename = 。。。   获取路径
+        out = rfs.create(filename) 创建溢写文件(空的)
+        溢写阶段:
+        sorter.sort(,,,) 先排序快排
+        按分区溢写实现逻辑fori i<partitons每分区
+        通过writer对象进行溢写
+        溢写时有conbiner判断 ==null
+        writer.close() 溢写结束 溢写文件有数据了
+    还会if(indexCahceMemoryLimit)判断索引文件是否大于1M(1048576)  大于则会生成索引文件 一般难发生
+    最后一次溢写 不到80% 会在MapTask中关闭NewOutputCollector对象(缓冲区)时候 output.close(mapperContext)
+
+        collector.flush()  将缓冲区的数据刷写的磁盘
+            sortAndSpill()
+            产生溢写文件 spill0.out spill1.out ...
+5   mergeParts()   归并，将多个溢写文件归并成一个大文件
+        Path[] filename = new Path[numSpills] 创建数组 用于存储多个溢写文件的路径
+
+        Path finalOutFile = mapOutputFile.getOutputFileForWrite(finalOutFileSize)  最终文件file.out
+
+        Path finalIndesFile = mapOutFile.getoutputIndexFileForWrite(finalIndexFileSize)   输出文件的索引文件 file.out.index
+
+        for(int parts = 0; parts < partitions; parts++) 按分区进行归并
+               {RawKeyValueIterator kvIter = Merger.merge(job, rfs,
+                                 keyClass, valClass, codec,
+                                 segmentList, mergeFactor,
+                                 new Path(mapId.toString()),
+                                 job.getOutputKeyComparator(), reporter, sortSegments,
+                                 null, spilledRecordsCounter, sortPhase.phase(),
+                                 TaskType.MAP); 归并操作！！！
+               }
+        if(combinerRunner == null || numSpills < minSpillsForCombine(3))
+        {writeFile(kvIter,writer,reporter,job)}
+        else{combineCollector.setWriter(writer); 写出之前判断conbiner   设置了且满足溢写次数大于等于3
+              combinerRunner.combine(kvIter,combineCollector)}
+
+        writer.close()  归并完成
+
+        spillRec.writeToFile(finalIndexFile,job) 写出索引文件
+
+        for(numSpills){rfs.delete(filename[i],true)}  删除所有溢写文件(spillN.out) 只保留最终的输出文件
+
+        最终的文件就是 file.out  和 file.out.index ,等待reduce的拷贝.
+
+
+
+reduceTask流程
+

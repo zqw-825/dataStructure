@@ -1,7 +1,7 @@
 import com.search.BinarySearch;
-import com.sort.QuickSortJava;
+import com.zqw.sort.QuickSortJava;
 import com.util.Util;
-import com.sort.MergeSortJava;
+import com.zqw.sort.MergeSortJava;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ public class TestSort {
         int[] arr = Util.getArr(20);
         QuickSortJava.quickSort(arr,0,arr.length-1);
         Util.arrToString(arr);
-        ArrayList flag = BinarySearch.binarySearch(arr, 0, arr.length-1, 3);
+        ArrayList flag = BinarySearch.binarySearch(arr, 0, arr.length-1, 9);
         System.out.println(flag);
 
     }

@@ -1,4 +1,4 @@
-import com.sort.{MergeSortScala, QuickSortScala}
+import com.zqw.sort.{MergeSortScala, QuickSortScala}
 
 /**
  * @author zqw

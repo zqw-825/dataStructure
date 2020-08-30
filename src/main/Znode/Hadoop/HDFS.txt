@@ -1,0 +1,72 @@
+HDFS
+
+块block大小  设置取决于磁盘传输速率
+寻址时间为传输时间的1%为最佳
+一般磁盘传输速率为100M/s
+分块大小=寻址时间(秒)/0.01
+一般128M或256M
+
+写数据
+读数据
+网络拓扑  节点距离计算
+机架感知  副本存储节点选择：同步副本时会选择不同机架
+
+
+NameNode管理的元数据存在哪里?  内存+磁盘
+
+
+NameNode(nn)
+负责元数据信息
+负责处理客户端的读写请求
+下达指令给DN
+
+DataNode(dn)
+负责管理HDFS的所有的真实文件数据
+以块的形式存储真实数据
+负责客户端数据的读写操作
+
+SecondaryNameNode(2nn):(HA后不用2nn了)
+分担NameNode一些工作，减轻NameNode的压力 关键时刻，辅助恢复NameNode
+    注意: 2nn 不是 nn的热备.顶多算nn的秘书 2nn不能成为NN
+
+
+如何在实现高效操作元数据的情况下，还能实现内存+磁盘的维护方案.并且还可以快速恢复NN
+​  HDFS 通过 fsimage(镜像文件) + edits(编辑日志)的方案来解决问题.
+​			fsimage镜像文件: 记录元数据。某个时刻对NN内存中元数据的一个快照.      镜像文件  <= NN内存中数据
+​			edits编辑日志: 记录对HDFS的改操作.记录各种操作信息     只做追加操作，因此效率高.
+
+​	如果一直往edits文件中追加内容，该文件会变的特别大,且会越来越大, 因此需要隔一段时间或者合适的时机
+    进行 fsimage + edits文件的合并工作, 从而生成新的fsimage
+​       		新的fsimage = 旧的fsimage + edits      
+                将fsimage 和edits的合并工作交给2nn完成
+
+    每隔1小时或者记录了100万次的操作后
+
+2NN 将NN中的fsimage和 edits 拷贝过来。
+加载到内存中进行合并. 合并完成后会生成新fsimage。
+2NN 将新fsimage推送到NN中。2NN 会保留新fsimage和旧fsimage
+
+NameNode故障处理
+1）将SecondaryNameNode中数据拷贝到NameNode存储数据的目录
+kill -9 NameNode进程
+删除NameNode存储的数据（/opt/module/hadoop-3.1.3/data/tmp/dfs/name）
+rm -rf /opt/module/hadoop-3.1.3/data/tmp/dfs/name/*
+拷贝SecondaryNameNode中数据到原NameNode存储数据目录
+scp -r atguigu@hadoop104:/opt/module/hadoop-3.1.3/data/tmp/dfs/namesecondary/* ./name/
+重新启动NameNode
+
+多目录
+NameNode的本地目录可以配置成多个，且每个目录存放内容相同，增加了可靠性
+
+黑名单退役
+白名单退役会直接将节点抛弃，没有迁移数据的过程，会造成数据丢失。
+
+分块是128M 但是1M的小文件真实存储大小还是1M
+但是大文件与小文件元数据信息大小基本一样 所以NN或者说HDFS怕小文件
+
+HAR归档 多个小文件处理为一个大文件 一个HAR文件里还是多个小文件 NN会认为一个HAR是一个文件 所以一个元数据信息
+hadoop archive -archiveName -p /path
+
+har:// har协议 解档
+
+

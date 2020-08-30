@@ -1,0 +1,62 @@
+切片(逻辑上) 获取一个或N个文件 从文件的一个位置读到一个位置
+
+Shuffle
+map写出的数据写到内存中(环形缓冲区KVbuffer)
+KV KV下标 KV分区
+所以不是100M数据才发生溢写  还记录了下标分区等
+Map写KV和溢写是不同线程做
+
+
+配置最终放properties里
+
+
+MapReduce的核心思想:先分(map)后合(reduce)
+Map阶段(MapTask):  负责将数据分到多台机器中，进行并行计算
+Reduce阶段(ReduceTask): 负责将多台机器在map阶段中计算出来的数据，进行整体的汇总.
+
+根据生成的切片(逻辑上对数据进行划分)的个数启动多少个MapTask进行Map阶段的计算
+多个MapTask是并行运行的，互不相干  但是MapTask太多 体现并发
+会根据分区的个数决定启动多少个ReduceTask
+每个ReduceTask会到每个MapTask中拷贝自己所要处理的数据（对应的分区的数据）
+并行执行，一般呈现无并发
+
+setup(): 在MapTask开始执行时调用1次.
+map()为输入数据的每个kv都调用一次map方法.大部分的MapReduce程序都需要重写该方法.
+reduce()为每个key调用1次reduce方法，大部分的MapReduce程序都需要重写该方法. 
+        	map写出的N个kv，其中会有很多相同的k， 在进入到reduce方法前，会按照k
+        	进行分组，把相同k的多个kv对分成一个组中. 一组的数据会执行一次reduce方法.
+cleanup(): 在MapTask结束前调用1次
+run()方法: 控制Mapper中的 setup  map  cleanup执行的方法
+
+
+Inputformat --> map --> sort --> copy --> sort --> reduce --> outputformat
+
+
+CombineTextInputFormat
+
+
+块: HDFS存数据的单位. 是把要存储到HDFS的文件以设置好的块的大小，从物理上将文件切成N个块.
+切片: MapReduce计算数据的单位. 是把要在MR中计算的数据从'逻辑'上按照切片的大小，划分成N个切片.
+                        切片(逻辑上) 获取一个或N个文件 从文件的一个位置读到一个位置
+​	块大小只是用来衡量一个文件在上传到HDFS的时候，是否需要切分，来决定文件要存成几个块
+1) 每个切片都需要由一个MapTask来处理 ， 也就意味着在一个MR中，有多少个切片，就会有多少个MapTask。
+2) 切片的大小默认情况下等于块的大小
+3) 切片的时候每个文件单独切片，不会整体切片.
+4) 切片的个数不是越多越好，也不是越少越少，按照实际情况，处理成合适的切片数.
+
+序列化：
+跨节点(网络传输)
+对象数据要持久化
+
+
+数据的分区由分区器(Partitioner)来决定.
+ Hadoop有默认的分区器对象 HashPartitioner .
+    HashPartitioner会按照k的hash值对Reduce的个数进行取余操作得到k所对应的分区.
+hadoop也支持用户自定义分区器
+
+排序
+
+Combiner:
+
+
+job

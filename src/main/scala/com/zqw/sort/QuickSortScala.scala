@@ -1,4 +1,4 @@
-package com.sort
+package com.zqw.sort
 
 import scala.util.control.Breaks._
 

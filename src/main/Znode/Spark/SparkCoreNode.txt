@@ -1,0 +1,204 @@
+Spark ：大数据分布式分析计算引擎
+
+    端口号总结
+    1）Spark历史服务器端口号：18080		（类比于Hadoop历史服务器端口号：19888）
+    2）Spark Master Web端口号：8080（类比于Hadoop的NameNode Web端口号：9870(50070)）
+    3）Spark Master内部通信服务端口号：7077	（类比于Hadoop的8020(9000)端口）
+    4）Spark查看当前Spark-shell运行任务情况端口号：4040
+    5）Hadoop YARN任务运行情况查看端口号：8088
+
+
+Spark为什么比MapReduce快？
+    1、Spark vs MapReduce ≠ 内存 vs 磁盘
+        其实Spark和MapReduce的计算都发生在内存中，区别在于：
+        MapReduce通常需要将计算的‘中间结果’写入磁盘，然后还要读取磁盘，从而导致了频繁的磁盘IO。
+        Spark则不需要将计算的中间结果写入磁盘，这得益于Spark的RDD（弹性分布式数据集，很强大）
+        和DAG（有向无环图），其中DAG记录了job的stage以及在job执行过程中父RDD和子RDD之间的依赖
+        关系。‘中间结果’能够以RDD的形式存放在内存中，且能够从DAG中恢复，大大减少
+        了磁盘IO。
+    2、Spark vs MapReduce Shuffle的不同
+        Spark和MapReduce在计算过程中通常都不可避免的会进行Shuffle，两者至少有一点不同：
+        MapReduce在Shuffle时需要花费大量时间进行排序，排序在MapReduce的Shuffle中似乎是不可避免的；
+        Spark在Shuffle时则只有部分场景才需要排序，支持基于Hash的分布式聚合，更加省时；
+    3、多进程模型 vs 多线程模型的区别
+        MapReduce采用了多进程模型，而Spark采用了多线程模型。
+        多进程模型的好处是便于细粒度控制每个任务占用的资源，但每次任务的启动都会消耗一定的启动时间。就是
+        说MapReduce的MapTask和ReduceTask是进程级别的，而SparkTask则是基于线程模型的，就是说mapreduce
+        中的 map 和 reduce 都是 jvm 进程，每次启动都需要重新申请资源，消耗了不必要的时间（假设容器启动时间
+        大概1s，如果有1200个block，那么单独启动map进程事件就需要20分钟）Spark则是通过复用线程池中的线程来减
+        少启动、关闭task所需要的开销。（多线程模型也有缺点，由于同节点上所有任务运行在一个进程中，因此，会
+        出现严重的资源争用，难以细粒度控制每个任务占用资源）
+
+
+
+Spark相关重要的概念：
+    1.应用 (创建一个SparkContext 程序)
+    我们编写的一个Spark程序，一般创建一个SparkContext，表示创建了一个应用
+    一个集群中可以有多个应用，这些应用是由集群管理器(cluster manager)来调度。
+    Spark应用可以并发的运行多个job
+
+    2.Job  (触发行动算子)
+        每次触发行动操作，都会提交一个Job
+         一个Spark应用可以有多个Job
+
+    3.Stage (程序中宽依赖的个数加1,有一个宽依赖就划分一个阶段  shuffle)
+         阶段，根据当前Job中宽依赖的数量来划分阶段
+         阶段的数量 = 宽依赖的数量 + 1
+
+    4.Task (每个阶段最后一个节点的分区数  保证最少而且够用)
+         任务，每个阶段由多个Task组成
+         每个阶段最后一个RDD的分区的个数就是当前阶段的任务数
+
+Spark总结:
+
+    Driver:驱动进程(1个,某节点)
+        执行Spark中的main方法,负责代码执行
+        1.将用户程序转化为(job)作业
+        2.在Executor之间调度任务(task)
+        3.跟踪Executor的执行情况
+        4.通过UI展示查询运行情况
+
+
+    Executor：执行器进程(多个,跨节点)
+    一个JVM进程(其实是一个线程线程)
+        1.负责在job中运行Spark应用的具体的任务,并行执行
+        2.通过自身的块管理器（Block Manager）为用户程序中要求缓存的 RDD 提供内存式存储。
+        RDD 是直接缓存在Executor进程内的，因此任务可以在运行时充分利用缓存数据加速运算。
+
+            移动位置不如移动计算：
+            如果有Executor节点发生了故障或崩溃，Spark 应用也可以继续执行
+            会将出错节点上的任务调度到其他Executor节点上继续运行。
+
+
+Spark通用运行流程：
+    1.Client程序提交后(在集群提交bin/spark-submit)读取配置
+    2.先启动Driver
+    3.Driver向 集群管理器(Master) 注册应用程序
+    4.集群管理器(Master) 会按照配置文件指定(Worker)去 分配并启动Executor
+    5.Executor向Driver反向注册   (Executor有多个)
+    6.Driver所要资源满足后
+        Driver --> 执行main函数
+               --> 执行到Action算子后反向推算(触发并执行Job)(Spark查询为 懒执行)
+               --> 根据宽依赖进行Stage的划分(Stage个数为 宽依赖个数+1(shuffle个数+1))
+                   每个Stage对应一个Taskset,Taskset中有多个Task
+               -->根据本地化原则(就近,避免IO及网络传输),将Task分发到指定的Executer中去执行
+        Executor在执行Task过程中不断与Driver进行通信,报告任务运行情况
+
+Spark部署模式
+   本地Local[*]  CPU核数
+   三种集群模式：
+      1 Standalone
+      2 Apache Mesos
+      3 Hadoop Yarn(YarnClient和YarnCluster)
+   只研究：Hadoop Yarn Cluster 模式就行
+
+       Client和Cluster模式的区别
+           Client：Driver运行在本地,Executor运行在集群,其二者交互需要大量网络IO
+           Cluster：Driver和Work进程都运行在集群上
+
+     Standlone模式(与通用模式类似)
+        Driver  (Client和Cluster模式区别:Driver位置)
+        Master(RM) 资源管理器(任务调度与资源分配，监控集群)
+        Worker(NM)  用自己的内存 储存RDD上的某些Partition
+                    启动Executor并在Worker上运行
+        Executor
+
+     YarnClient模式：
+        程序提交,在本地启动Driver,Driver在本地运行
+        Driver与集群中的ResourceManager进行通信,申请启动ApplicationMaster
+        MR分配Container,在NodeManager上启动AppMaster
+        AppMaster只负责向RM申请Executor的内存(资源)
+        RM接收到AM申请后会分配CT,AppMaster会分配资源给NM
+        NM会启动Executor
+        Executor向Driver反向注册
+        Driver得到申请的资源后,执行main方法
+            执行到Action算子后进行反推算,触发Job
+            根据宽依赖(Shuffle)进行分Stage
+            每个Stage被打包为TaskSet
+            TaskSet根据各阶段最后的分区决定启动多少个Task
+            将Task分配到Executor去执行
+        Executor在执行Task时会与Driver进行通信,报告Task执行情况
+
+   !!!YarnCluster模式：
+         客户端程序提交,会与RM通信申请AppMaster
+         RM会分配Container封装,在NM上启动AppMaster(AM启动Driver线程)
+         Driver启动后向RM申请Executor内存
+         RM接收到Driver的申请后,分配CT封装AM,AM在合适的NM上启动Executor线程
+         Executor向Driver反向注册,之间保持心跳
+         全部注册完后,Driver开始执行main方法
+         执行到Action算子后进行反推算,触发Job
+             根据宽依赖(Shuffle)进行分Stage
+             每个Stage被打包为TaskSet
+             TaskSet根据各阶段最后的分区决定启动多少个Task
+             将Task分配到Executor去执行
+         Executor在执行Task时会与Driver进行通信,报告Task执行情况
+
+
+Spark通信架构:
+         Spark2.x  使用Netty通信框架作为内部通信组件
+         Spark3.x  基于Netty新的rpc框架借鉴了Akka的设计，基于Actor模型
+
+     Spark在通信架构中各个组件可以认为时一个个独的实体，各个实体间进行通信
+        Endpoint(端点)拥有1个InBox和多个OutBox(取决于Endpoint要与多少个Endpoint进行通信)
+        发出消息要一个OutBox，消息去写出到另一个Endpoint的InBox
+        接收的消息被写入InBox
+
+     架构组成:
+        1.RpcEndpoint：Spark的每个节点都称之为Rpc端点，都实现了RpcEndpoint接口
+        2.RpcEnv：Rpc上下文环境
+        3.Dispatcher：消息分发器
+        4.RpcEndpointRef:对远程的RpcEndpoint的一个引用
+        5.InBox：收件箱
+        6.OutBox：指令发件箱
+        7.RpcAddress：表示远程的RpcEndpointRef的地址，Host + Port。
+        8.TransportClient：Netty通信客户端，一个OutBox对应一个TransportClient，TransportClient不断轮询OutBox，根据OutBox消息的receiver信息，请求对应的远程TransportServer；
+        9.TransportServer：Netty通信服务端，一个RpcEndpoint对应一个TransportServer，接受远程消息后调用Dispatcher分发消息至对应收发件箱；
+
+
+
+以下为YarnCluster模式内核解析
+执行Spark提交命令
+bin/spark-submit \
+--class com.atguigu.spark.WordCount \
+--master yarn \
+WordCount.jar \
+/input \
+/output
+
+底层执行：bin/java org.apache.spark.deploy.submit + "$@"
+
+YarnCluster模式：
+         客户端程序提交
+         会与RM通信申请AppMaster
+         RM会分配Container封装,在NM上启动AppMaster(AM启动Driver线程)
+         Driver启动后向RM申请Executor内存
+         RM接收到Driver的申请后,分配CT封装AM,AM在合适的NM上启动Executor线程
+         Executor向Driver反向注册
+         全部注册完后,Driver开始执行main方法
+         执行到Action算子后进行反推算,触发Job
+             根据宽依赖(Shuffle)进行分Stage
+             每个Stage会被打包成TaskSet
+             TaskSet根据各阶段最后的分区决定启动多少个Task
+             将Task分配到Executor去执行
+         Executor在执行Task时会与Driver进行通信,报告Task执行情况
+
+
+执行SparkSubmit类
+调用submit.doSubmit(args)方法
+    对参数进行解析，parseArguments(args)一些常量 CLASS MASTER
+        如--class --master 都有对应的字符串
+        进行模式匹配对value进行赋值
+        得到KV类型的参数配置
+    执行submit方法 (进行了模式匹配 原值为null的话执行submit 单例模式)
+        执行doRunMain(args,..)方法中的
+            runMain(args,..)方法
+                准备提交环境（元组）
+                val (childArgs,childClasspath,SparkConf,childMainClass) = prepareSubmutEnvironment(args)
+                如类加载器
+                反射获取childMainClass类对象 YarnClusterApplication
+                创建YarnClusterApplication实例
+                运行YarnClusterApplication实例的start方法
+                    创建YarnClient对象  并执行run方法
+                        封装AM
+                        提交job yarnClient.submitApplication(appContext)
+

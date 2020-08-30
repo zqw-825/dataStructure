@@ -1,0 +1,138 @@
+1.前置知识:
+Zookeeper
+
+2.Kafka基础架构关键点:
+  2.1. Kafka集群
+       kafka集群可以有N台机器,每台都称之为broker , 每台机器都有自己的id，
+       因此kafka集群中的N机器为:  broker1  broker2 broker3 .....
+  2.2. Topic
+       kafka集群中可以创建N个Topic
+       每个topic可以有多个分区(partition)
+       每个topic的每个分区可以有多个副本(replication)
+       同一个topic的多个分区可以存在到kafka集群的一个机器.但是同一个topic的同一个分区的多个副本不能
+       存在kafka集群的一个机器.
+
+  2.3  消费者组
+       kafka是以消费者组为单位进行消息消费的.
+       一个消费者组可以有一个消费者或者多个消费者
+
+  2.4  Topic 和 消费者组
+      一个消费者组中的一个消费者可以同时消费一个topic中的多个分区的数据.
+      一个topic中的一个分区只能被一个消费者组中的一个消费者消费.
+      一个tipic中的一个分区能被多个消费者组中的一个消费者消费.
+  
+  2.5  Zookeeper
+       kafka集群工作需要基于zk
+       kafka的topic， partition， replication等需要存储在zk中
+       在kafka 0.9版本之前，消费者组的offset维护在zk中。 
+       但是0.9版本之后建议维护到kafka本地. 当前2.4.1版本中已不在支持zk维护offset.
+
+
+3. Kafka 
+   3.1 Topic 操作
+     1) 创建topic
+        bin/kafka-topics.sh --create --zookeeper hadoop102:2181 --topic first --partitions 2 --replication-factor 2
+     2) 查所有的topic 
+        bin//kafka-topics.sh --list --zookeeper hadoop102:2181
+     3) 查看所有topic的详情
+        bin/kafka-topics.sh --describe --zookeeper hadoop102:2181
+	查看某个topic的详情
+	bin/kafka-topics.sh --describe --zookeeper hadoop102:2181 --topic first
+     4) 修改topic (一般不用)
+        只能改分区，且只能往大了改
+        bin/kafka-topics.sh --alter --zookeeper hadoop102:2181 --topic first --partitions 3
+     5) 删除topic 
+        bin/kafka-topics.sh --delete  --zookeeper hadoop102:2181 --topic second
+
+
+
+1. 问题:
+   1.1  启动了一个新的消费组的一个消费者，去消费有消息的主题，消费不到数据.
+
+2. 命令行操作生产者和消费者
+  2.1 启动生产者
+      bin/kafka-console-producer.sh --topic first --broker-list hadoop102:9092
+  2.2 启动消费者
+      bin/kafka-console-consumer.sh --topic first --bootstrap-server hadoop102:9092
+      bin/kafka-console-consumer.sh --topic first --bootstrap-server hadoop102:9092 --from-beginning（从头消费）
+
+3. 生产者
+  3.1 分区策略
+     1) 在构造ProducerRecord对象(topic,partition,value)  / (topic,partition,key,value)
+        因为具体指定过partition, 消息会发布到指定的partition中.
+
+     2) 在构造ProducerRecord对象(topic,key,value)
+	没有具体指定partition,但是提供了key, kafka会按照key的hash值对partition的个数取余，
+	得出当前消息发布到哪个partition
+
+     3) 在构造ProducerRecord对象(topic,value)
+        在老版本中:  第一次随机生成一个数字N，对partition的个数取余，得出发布到哪个partition，
+	             后续每次会执行N++的操作，再对partition的个数取余，得出发布到哪个partition。
+		     实际上就是轮询的效果.
+		     该效果在老版本中是通过DefaultPartition类来实现的.
+		     在当前版本中,是通过RoundRobinPartitioner类实现的.
+
+        在当前版本中:  会随机一个分区, 然后尽可能一直使用该分区，待该分区的缓冲区(batch)满或者
+	               超过指定时间后，会重新随机一个分区来使用.
+		       该效果在当前版本中是通过DefaultPartition类来实现的
+
+Kakfa 消息队列
+解耦缓冲削峰，异步通信
+发布订阅模式一对多 topic
+Kafka中消息是以topic进行分类的
+消息队列2种模式
+一对一Queue
+Kafka中消息是以topic进行分类的，生产者生产消息，消费者消费消息，都是面向topic的。topic是逻辑上的概念，而partition是物理上的概念，每个partition对应于一个log文件，该log文件中存储的就是producer生产的数据。Producer生产的数据会被不断追加到该log文件末端，且每条数据都有自己的offset。消费者组中的每个消费者，都会实时记录自己消费到了哪个offset，以便出错恢复时，从上次的位置继续消费。
+副本设置2-3个
+producer：
+分区策略：
+分区好处：提高并发，可以分区为单位读写
+		  方便扩展：可调整分区来适应所在机器
+分区：将producer生产的数据封装成一个ProducerRecord对象
+1.指明partition
+2.未指明partition但是数据有K，则按K的哈希与partition数取余 进行分区
+3.粘性分区，随机使用一个分区，满了换下一个
+
+数据可靠性：
+1.ack应答
+partition(leader)对producer发送 acknowledgement确认收到,pro收到ack，则继续向partition发送数据，否则重新发送数据
+当全部follower接收数据完成后，leader才向producer发送ack
+选举新的leader时，容忍n台节点的故障，需要n+1个副本 一般3台 可坏2台
+虽然网络延迟会比较高，但网络延迟对Kafka的影响较小。
+2.ack三种可靠性级别
+0：leader收到producer数据即返回ack,leader发生故障大概率丢数据
+1：leader接收数据并落盘后就返回ack,在follower同步未完成时leader故障则会丢数据
+-1：follower全部同步完成后(全部落盘后)再返回ack,如果follower同步完后leader为发生ack时,leader故障，则数据重复
+3.ISR
+leader会产生一个动态的ISR(follower同步集合)，当一follower长时间未向leader同步数据，则将此follower踢出ISR，在ISR中的follower都同步完数据则就发送ack。并且在leader故障后会从ISR中选举一个follower为leader
+4.leader故障处理
+leader和follower都称之为副本,leader数据肯定最多
+每个副本最高offset为LEO
+其中一个follower数据最少,以最少的follower的最高offset(LEO)为WH
+consumer可见的最大offset为每个副本的WH
+1)follower故障
+会将故障follower临时踢出ISR。follower恢复后会从本地磁盘读取之前记录的HW,并截掉高于HW的数据，并从此HW向leader同步数据，数据追上本分区的HW后,则重新回到ISR
+2)leader故障
+会选举新的leader, 每个follower会截掉offset高于WH的数据,再向新leader同步数据(就是同步WH后的)
+不能保证会丢或重复数据
+
+consumer：
+从broker拉取数据,与推2数据相比效率高
+不足：brocker无数据会陷入循环,取回空数据,Kafka有参数设置若取回空数据则会让消费者暂时停止拉取一段时间
+拉取数据的分区分配策略：
+RoundRobin：消费者按顺序依次消费一个分区
+Range：平均分配
+
+consumer记录消费到的offset保存在Kafka的一个内置的topic中，__consumer_offsets
+0.9版本之前存在zookeeper中
+
+kafka高效读写数据
+1.顺序写磁盘
+2.零复制
+3.分布式 并行计算
+
+zookeeper在kafka中的作用：
+kafka中的一个broker会被选举为Controller，其负责broker的上下线和所有topic的分区及副本的分配和leader的选举等工作
+
+kafka监控 kafkaeagle
+
