@@ -32,6 +32,7 @@
 						//准备提交环境
 						//childMainClass=org.apache.spark.deploy.yarn.YarnClusterApplication
 						//childArgs   --class==>WordCount
+
 						@871 val (childArgs, childClasspath, sparkConf, childMainClass)
 								= prepareSubmitEnvironment(args)
 
@@ -57,23 +58,27 @@
      								//提交Job到Yarn集群
      								%201 yarnClient.submitApplication(appContext)
 
+
 1.4 运行org.apache.spark.deploy.yarn.ApplicationMaster
 	-main
 		//封装参数	--class ==>WordCount
 		*842 val amArgs = new ApplicationMasterArguments(args)
+
+		 master = new AppMaster(amArgs,sparkConf,yarnConf)
 		//执行run方法
 		*890 master.run()
 			>264 runDriver()
 				~492 userClassThread = startUserApplication()
 					//这里main方法就是WordCount的main方法
-					!718 al mainMethod = userClassLoader.loadClass(args.userClass).getMethod("main", classOf[Array[String]])
+					!718 val mainMethod = userClassLoader.loadClass(args.userClass).getMethod("main", classOf[Array[String]])
 
 					//开启一个新的线程，调用main方法
-					!721 new Thread==>run
+					!721 userThread = new Thread     ==>run
 					!728 mainMethod.invoke(null, userArgs.toArray)
 					//给线程取名 Driver
 					!758 userThread.setName("Driver")
     				!759 userThread.start()
+
 
     			//向RM注册AM
     			~507 registerAM(host, port, userConf, sc.ui.map(_.webUrl), appAttemptId)

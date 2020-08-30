@@ -1,3 +1,33 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Spark-Yarn-cluster模式
 任务调度：资源申请和任务分发
 App -> Job -> Stage -> Task
@@ -5,11 +35,11 @@ App -> Job -> Stage -> Task
 任务提交
 程序员提交一个Spark应用程序(Application)
 首先Client向RM申请启动一个Application
-RM检查是否有资源满足Application的需求,如果有
+RM检查是否有资源满足Application的需求,如果有 返回提交路径和AppMID
 Client准备AppMaster的启动上下文,交给RM,并循环监控Application状态
 当有资源时,RM会在某个NM上启动AppMaster进程
 此AppMaster会单独启动Driver后台线程,Driver启动后,AM会通过RPC连接Driver,并向RM申请Container来启动Executor进程
-RM返回Container资源后,AppMaster在对应的Container上启动对应的ExecutorBackEnd
+RM返回Container资源后,AppMaster在对应的Container上启动对应的ExecutorBackend
 在ExecutorBackEnd上启动Executor
 Executor启动后,会向Driver反向注册
 注册成功后,Driver和Executor之间保持心跳, Executor等待Driver分发任务

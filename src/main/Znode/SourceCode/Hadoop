@@ -1,9 +1,4 @@
 
-配置最终放properties里
-
-
-
-
 
 提交Job   job.waitForCompletion(true)
 state == jobState.DEFINE 判断job状态
