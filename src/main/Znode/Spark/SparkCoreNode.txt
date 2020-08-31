@@ -183,22 +183,3 @@ YarnCluster模式：
          Executor在执行Task时会与Driver进行通信,报告Task执行情况
 
 
-执行SparkSubmit类
-调用submit.doSubmit(args)方法
-    对参数进行解析，parseArguments(args)一些常量 CLASS MASTER
-        如--class --master 都有对应的字符串
-        进行模式匹配对value进行赋值
-        得到KV类型的参数配置
-    执行submit方法 (进行了模式匹配 原值为null的话执行submit 单例模式)
-        执行doRunMain(args,..)方法中的
-            runMain(args,..)方法
-                准备提交环境（元组）
-                val (childArgs,childClasspath,SparkConf,childMainClass) = prepareSubmutEnvironment(args)
-                如类加载器
-                反射获取childMainClass类对象 YarnClusterApplication
-                创建YarnClusterApplication实例
-                运行YarnClusterApplication实例的start方法
-                    创建YarnClient对象  并执行run方法
-                        封装AM
-                        提交job yarnClient.submitApplication(appContext)
-
